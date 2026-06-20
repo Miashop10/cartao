@@ -360,7 +360,7 @@ let users=[];
 let currentUid=localStorage.getItem(CURRENT_USER_KEY)||null;
 let compras=[];                       // compras do usuário selecionado
 let fx=loadFx();
-let viewYM=invoiceOf(new Date());
+let viewYM=invoiceOf(hojeLocal());
 
 // ---------- comunicação com o backend ----------
 async function apiGet(){
@@ -389,7 +389,35 @@ function aplicarEstado(state){
   recarregarComprasDoUsuario();
 }
 function recarregarComprasDoUsuario(){
-  compras=(STATE.compras||[]).filter(c=>String(c.uid)===String(currentUid));
+  compras=(STATE.compras||[])
+    .filter(c=>String(c.uid)===String(currentUid))
+    .map(c=>({
+      id:String(c.id),
+      uid:String(c.uid),
+      data:normalizarData(c.data),
+      desc:String(c.desc||""),
+      catId:String(c.catId||"outros"),
+      moeda:String(c.moeda||"BRL"),
+      parcelas:Math.max(1,parseInt(c.parcelas,10)||1),
+      valorOrig:Number(c.valorOrig)||0,
+      rate:Number(c.rate)||1,
+      valorBRL:Number(c.valorBRL)||0,
+      fxDate:c.fxDate||null
+    }));
+}
+// aceita "2025-06-20", "2025-06-20T..", Date serializado, ou dd/mm/yyyy -> retorna YYYY-MM-DD
+function normalizarData(v){
+  if(!v) return ymdLocal(hojeLocal());
+  let s=String(v);
+  if(s.indexOf("T")>0) s=s.substring(0,10);            // ISO com hora
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;            // já está certo
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){                   // dd/mm/yyyy
+    const [d,m,y]=s.split("/");return `${y}-${m}-${d}`;
+  }
+  // tenta interpretar como data qualquer, em horário local
+  const d=new Date(s);
+  if(!isNaN(d)) return ymdLocal(new Date(d.getFullYear(),d.getMonth(),d.getDate()));
+  return ymdLocal(hojeLocal());
 }
 
 function loadFx(){try{return JSON.parse(localStorage.getItem(FX_KEY))||null}catch(e){return null}}
@@ -398,6 +426,11 @@ function saveFx(){localStorage.setItem(FX_KEY,JSON.stringify(fx))}
 
 const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const symbol={BRL:"R$",USD:"US$",EUR:"€",CNY:"¥"};
+
+// ---- datas (sempre em horário local, nunca UTC) ----
+function hojeLocal(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function ymdLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function parseData(s){const [y,m,d]=String(s).substring(0,10).split("-").map(Number);return new Date(y,(m||1)-1,d||1);}
 
 // ---- regra da fatura ----
 function invoiceOf(date){
@@ -470,7 +503,7 @@ async function delCompra(id){
 function parcelasDaFatura(ym){
   const itens=[];
   compras.forEach(c=>{
-    const base=invoiceOf(new Date(c.data+"T12:00:00"));
+    const base=invoiceOf(parseData(c.data));
     for(let p=0;p<c.parcelas;p++){
       const venc=ymAdd(base,p);
       if(venc.y===ym.y&&venc.m===ym.m){
@@ -486,7 +519,7 @@ const totalDaFatura=ym=>parcelasDaFatura(ym).reduce((s,i)=>s+i.valorBRL,0);
 function faturasComItens(){
   const set=new Map();
   compras.forEach(c=>{
-    const base=invoiceOf(new Date(c.data+"T12:00:00"));
+    const base=invoiceOf(parseData(c.data));
     for(let p=0;p<c.parcelas;p++){const v=ymAdd(base,p);set.set(ymKey(v),v);}
   });
   return [...set.values()].sort((a,b)=>ymKey(a)-ymKey(b));
@@ -669,7 +702,7 @@ function preencherSelectCategoria(){
   if([...sel.options].some(o=>o.value===prev))sel.value=prev;
 }
 preencherSelectCategoria();
-document.getElementById("data").valueAsDate=new Date();
+document.getElementById("data").value=ymdLocal(hojeLocal());
 
 // ---- modal editar categorias ----
 function abrirCatModal(){
@@ -724,7 +757,7 @@ function trocarUsuario(uid){
   currentUid=uid;
   localStorage.setItem(CURRENT_USER_KEY,uid);
   recarregarComprasDoUsuario();
-  viewYM=invoiceOf(new Date());
+  viewYM=invoiceOf(hojeLocal());
   renderAll();
 }
 async function addUser(){
