@@ -35,6 +35,13 @@
     display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
     border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:0;flex-wrap:wrap;
   }
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-logo{
+    width:52px;height:52px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--accent);color:var(--paper);
+    border-radius:13px;box-shadow:var(--shadow);
+  }
   .brand h1{font-size:clamp(22px,3.4vw,30px);margin:0;letter-spacing:-.02em;font-weight:800}
   .brand .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin-bottom:4px}
   .head-right{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
@@ -128,6 +135,9 @@
   .orig{font-size:11px;color:var(--ink-soft);font-weight:500}
   .del{cursor:pointer;color:var(--ink-soft);border:none;background:none;font-size:16px;line-height:1}
   .del:hover{color:var(--danger)}
+  .acts{display:flex;gap:4px;justify-content:flex-end}
+  .edit{cursor:pointer;color:var(--ink-soft);border:none;background:none;font-size:15px;line-height:1}
+  .edit:hover{color:var(--accent)}
   .empty{padding:40px 18px;text-align:center;color:var(--ink-soft);font-size:14px}
 
   .upcoming{margin-top:26px}
@@ -169,8 +179,35 @@
 
   <header class="app">
     <div class="brand">
-      <div class="eyebrow">Cartão de Crédito · Conferência de Fatura</div>
-      <h1>Meus Gastos</h1>
+      <div class="brand-logo" aria-label="Logo Cartão de Crédito">
+        <svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true">
+          <!-- frontão -->
+          <path d="M50 18 L86 44 L14 44 Z" fill="currentColor"/>
+          <!-- cifrão no frontão -->
+          <text x="50" y="42" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="20" fill="var(--accent)">$</text>
+          <!-- base superior (arquitrave) -->
+          <rect x="16" y="46" width="68" height="5" fill="currentColor"/>
+          <!-- colunas -->
+          <rect x="22" y="53" width="9" height="30" fill="currentColor"/>
+          <rect x="38" y="53" width="9" height="30" fill="currentColor"/>
+          <rect x="53" y="53" width="9" height="30" fill="currentColor"/>
+          <rect x="69" y="53" width="9" height="30" fill="currentColor"/>
+          <!-- capitéis e bases das colunas -->
+          <rect x="20" y="51" width="13" height="3" fill="currentColor"/>
+          <rect x="36" y="51" width="13" height="3" fill="currentColor"/>
+          <rect x="51" y="51" width="13" height="3" fill="currentColor"/>
+          <rect x="67" y="51" width="13" height="3" fill="currentColor"/>
+          <rect x="20" y="83" width="13" height="3" fill="currentColor"/>
+          <rect x="36" y="83" width="13" height="3" fill="currentColor"/>
+          <rect x="51" y="83" width="13" height="3" fill="currentColor"/>
+          <rect x="67" y="83" width="13" height="3" fill="currentColor"/>
+          <!-- base inferior -->
+          <rect x="16" y="87" width="68" height="5" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="brand-txt">
+        <h1>Cartão de Crédito</h1>
+      </div>
     </div>
     <div class="head-right">
       <div class="user-box">
@@ -322,6 +359,55 @@
     <div class="modal-foot">
       <button class="btn sec" id="catReset">Restaurar padrão</button>
       <button class="btn" id="catSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: editar lançamento -->
+<div class="modal-bg" id="editModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Editar lançamento</h3>
+      <button class="x" id="editModalClose" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="e_data">Data da compra</label>
+        <input type="date" id="e_data">
+      </div>
+      <div class="field">
+        <label for="e_desc">Descrição</label>
+        <input type="text" id="e_desc" maxlength="80">
+      </div>
+      <div class="field">
+        <label for="e_categoria">Categoria</label>
+        <select id="e_categoria"></select>
+      </div>
+      <div class="field">
+        <label for="e_moeda">Moeda da compra</label>
+        <select id="e_moeda">
+          <option value="BRL">Real (R$)</option>
+          <option value="USD">Dólar (US$)</option>
+          <option value="EUR">Euro (€)</option>
+          <option value="CNY">Yuan (¥)</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="e_valor" id="e_valorLabel">Valor total (R$)</label>
+          <input type="number" id="e_valor" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label for="e_parcelas">Parcelas</label>
+          <input type="number" id="e_parcelas" min="1" max="48" step="1">
+        </div>
+      </div>
+      <div class="conv-hint" id="e_convHint"></div>
+    </div>
+    <div class="modal-note">A cotação usada na conversão é a do momento em que você salvar a edição (para compras em moeda estrangeira).</div>
+    <div class="modal-foot">
+      <button class="btn sec" id="editCancel">Cancelar</button>
+      <button class="btn" id="editSave">Salvar alterações</button>
     </div>
   </div>
 </div>
@@ -562,7 +648,7 @@ function renderRecent(){
         <td class="desc">${escapeHtml(c.desc)}<div><span class="cat-chip" style="background:${catColor(c.catId)}">${escapeHtml(catNome(c.catId))}</span></div></td>
         <td>${dt}<div class="meta">${parc}</div></td>
         <td class="val">${brl(c.valorBRL)}${orig}</td>
-        <td><button class="del" onclick="delCompra('${c.id}')">✕</button></td>
+        <td><div class="acts"><button class="edit" title="Editar" onclick="abrirEdicao('${c.id}')">✎</button><button class="del" title="Excluir" onclick="delCompra('${c.id}')">✕</button></div></td>
       </tr>`);
   });
 }
@@ -583,7 +669,7 @@ function renderFatura(){
         <td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}</div><div><span class="cat-chip" style="background:${catColor(i.catId)}">${escapeHtml(catNome(i.catId))}</span></div></td>
         <td>${parc}</td>
         <td class="val">${brl(i.valorBRL)}${orig}</td>
-        <td><button class="del" onclick="delCompra('${i.id}')">✕</button></td>
+        <td><div class="acts"><button class="edit" title="Editar" onclick="abrirEdicao('${i.id}')">✎</button><button class="del" title="Excluir" onclick="delCompra('${i.id}')">✕</button></div></td>
       </tr>`);
   });
   document.getElementById("monthTotal").textContent=brl(totalDaFatura(viewYM));
@@ -814,6 +900,73 @@ document.getElementById("catSave").onclick=salvarCats;
 document.getElementById("catAdd").onclick=addCatLinha;
 document.getElementById("catReset").onclick=resetCats;
 document.getElementById("catModal").onclick=e=>{if(e.target.id==="catModal")fecharCatModal();};
+
+// ---- modal editar lançamento ----
+let editandoId=null;
+function abrirEdicao(id){
+  const c=compras.find(x=>String(x.id)===String(id));
+  if(!c){alert("Compra não encontrada.");return;}
+  editandoId=id;
+  // categorias do usuário atual no select
+  const sel=document.getElementById("e_categoria");
+  sel.innerHTML=CATEGORIAS.map(k=>`<option value="${k.id}">${escapeHtml(k.nome)}</option>`).join("");
+  document.getElementById("e_data").value=c.data;
+  document.getElementById("e_desc").value=c.desc;
+  sel.value=c.catId;
+  document.getElementById("e_moeda").value=c.moeda;
+  // mostra o valor na MOEDA ORIGINAL da compra
+  document.getElementById("e_valor").value=c.valorOrig;
+  document.getElementById("e_parcelas").value=c.parcelas;
+  updateEditConvHint();
+  document.getElementById("editModal").classList.add("open");
+}
+function fecharEdicao(){editandoId=null;document.getElementById("editModal").classList.remove("open");}
+function updateEditConvHint(){
+  const moeda=document.getElementById("e_moeda").value;
+  const valor=parseFloat(document.getElementById("e_valor").value);
+  document.getElementById("e_valorLabel").textContent=`Valor total (${symbol[moeda]})`;
+  const hint=document.getElementById("e_convHint");
+  if(moeda==="BRL"||!valor){hint.textContent="";return;}
+  if(!fx||!fx[moeda]){hint.textContent="Cotação não carregada.";return;}
+  hint.textContent=`≈ ${brl(valor*fx[moeda])} (cotação ${fx[moeda].toLocaleString("pt-BR",{minimumFractionDigits:4})})`;
+}
+async function salvarEdicao(){
+  if(!editandoId)return;
+  const orig=compras.find(x=>String(x.id)===String(editandoId));
+  if(!orig){alert("Compra não encontrada.");return;}
+  const data=document.getElementById("e_data").value;
+  const desc=document.getElementById("e_desc").value.trim();
+  const catId=document.getElementById("e_categoria").value;
+  const moeda=document.getElementById("e_moeda").value;
+  const valor=parseFloat(document.getElementById("e_valor").value);
+  const parcelas=Math.max(1,parseInt(document.getElementById("e_parcelas").value)||1);
+  if(!data){alert("Informe a data.");return;}
+  if(!desc){alert("Informe a descrição.");return;}
+  if(!valor||valor<=0){alert("Informe um valor válido.");return;}
+  let rate=1,valorBRL=valor;
+  if(moeda!=="BRL"){
+    // se a moeda não mudou, mantém a taxa original; se mudou, usa a cotação atual
+    if(moeda===orig.moeda){rate=orig.rate;valorBRL=valor*rate;}
+    else{
+      if(!fx||!fx[moeda]){alert("Cotação não carregada para "+moeda+". Clique em 'atualizar'.");return;}
+      rate=fx[moeda];valorBRL=valor*rate;
+    }
+  }
+  const compra={id:orig.id,uid:currentUid,data,desc,catId,moeda,parcelas,valorOrig:valor,rate,valorBRL,fxDate:moeda!=="BRL"?(moeda===orig.moeda?orig.fxDate:fx.date):null};
+  const btn=document.getElementById("editSave");btn.disabled=true;btn.textContent="Salvando...";
+  try{
+    const res=await apiPost("updateCompra",compra);
+    if(res&&res.ok){aplicarEstado(res.state);renderAll();fecharEdicao();}
+    else throw new Error(res&&res.error||"falha");
+  }catch(e){alert("Não foi possível salvar a edição online.\n\n"+e);}
+  finally{btn.disabled=false;btn.textContent="Salvar alterações";}
+}
+document.getElementById("editModalClose").onclick=fecharEdicao;
+document.getElementById("editCancel").onclick=fecharEdicao;
+document.getElementById("editSave").onclick=salvarEdicao;
+document.getElementById("e_moeda").onchange=updateEditConvHint;
+document.getElementById("e_valor").oninput=updateEditConvHint;
+document.getElementById("editModal").onclick=e=>{if(e.target.id==="editModal")fecharEdicao();};
 
 // ---- usuários: UI ----
 function renderUserSelect(){
