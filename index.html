@@ -80,9 +80,12 @@
   .modal-head .x{border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-soft)}
   .modal-head .x:hover{color:var(--danger)}
   .modal-body{padding:14px 20px;overflow-y:auto}
-  .cat-edit-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .cat-edit-row .swatch{width:14px;height:14px;border-radius:4px;flex-shrink:0}
-  .cat-edit-row input{padding:8px 11px;font-size:14px}
+  .cat-edit-row{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+  .cat-edit-row input[type=color]{width:34px;height:34px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;flex-shrink:0}
+  .cat-edit-row input[type=text]{flex:1;padding:8px 11px;font-size:14px}
+  .cat-edit-row .rm{border:1px solid var(--line);background:none;color:var(--ink-soft);width:34px;height:34px;border-radius:8px;cursor:pointer;flex-shrink:0;font-size:15px}
+  .cat-edit-row .rm:hover:not(:disabled){color:var(--danger);border-color:#f0c2bd;background:#fff5f4}
+  .cat-edit-row .rm:disabled{opacity:.35;cursor:not-allowed}
   .modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px}
   .modal-foot .btn{margin:0}
   .modal-foot .btn.sec{background:none;color:var(--ink-soft);border:1px solid var(--line);font-weight:600}
@@ -308,11 +311,14 @@
 <div class="modal-bg" id="catModal">
   <div class="modal">
     <div class="modal-head">
-      <h3>Nomes das categorias</h3>
+      <h3>Categorias</h3>
       <button class="x" id="catModalClose" aria-label="Fechar">×</button>
     </div>
     <div class="modal-body" id="catEditList"></div>
-    <div class="modal-note">Alterar o nome aqui atualiza a categoria em todas as compras já lançadas. A cor de cada uma é mantida.</div>
+    <div style="padding:0 20px 4px">
+      <button class="btn sec" id="catAdd" style="width:100%">+ Adicionar categoria</button>
+    </div>
+    <div class="modal-note">Cada usuário tem suas próprias categorias. Você pode criar quantas quiser, mudar nome e cor. Categorias usadas em compras não podem ser apagadas (renomeie se preferir).</div>
     <div class="modal-foot">
       <button class="btn sec" id="catReset">Restaurar padrão</button>
       <button class="btn" id="catSave">Salvar</button>
@@ -343,18 +349,21 @@ const CAT_DEFAULT=[
   {id:"vestuario",nome:"Vestuário",cor:"#db2777"},
   {id:"outros",nome:"Outros",cor:"#78716c"}
 ];
+// paleta sugerida para novas categorias
+const PALETA=["#c2410c","#0e7490","#16604a","#9a7b1f","#7c3aed","#be123c","#2563eb","#475569","#db2777","#78716c","#ca8a04","#15803d","#1d4ed8","#9333ea","#dc2626","#0891b2","#a16207","#4d7c0f","#b91c1c","#6d28d9"];
 
 // ---------- estado em memória (espelho do Sheets) ----------
-let STATE = { usuarios: [], compras: [], catNames: {} };
-let catNames = {};
+let STATE = { usuarios: [], compras: [], cats: {} };
+let catsByUser = {};                  // { uid: [ {id,nome,cor} ] }
 let CATEGORIAS = CAT_DEFAULT.map(c=>({...c}));
 
-const catById=id=>CATEGORIAS.find(c=>c.id===id)||CATEGORIAS[CATEGORIAS.length-1];
+const catById=id=>CATEGORIAS.find(c=>c.id===id)||CATEGORIAS[CATEGORIAS.length-1]||{id:"outros",nome:"Outros",cor:"#78716c"};
 const catColor=id=>catById(id).cor;
 const catNome=id=>catById(id).nome;
 
 function newUid(){return "u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function newCatId(){return "c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 
 let users=[];
 let currentUid=localStorage.getItem(CURRENT_USER_KEY)||null;
@@ -380,13 +389,26 @@ async function apiPost(action,payload){
 function aplicarEstado(state){
   STATE=state;
   users=(state.usuarios||[]).map(u=>({id:String(u.id),nome:String(u.nome)}));
-  catNames=state.catNames||{};
-  CATEGORIAS=CAT_DEFAULT.map(c=>({...c,nome:catNames[c.id]||c.nome}));
+  catsByUser=state.cats||{};   // { uid: [ {id,nome,cor} ] }
   if(!currentUid||!users.some(u=>u.id===currentUid)){
     currentUid=users.length?users[0].id:null;
     if(currentUid)localStorage.setItem(CURRENT_USER_KEY,currentUid);
   }
+  montarCategoriasDoUsuario();
   recarregarComprasDoUsuario();
+}
+// monta CATEGORIAS do usuário atual; se ainda não tem lista própria, usa as padrão
+function montarCategoriasDoUsuario(){
+  const lista=(catsByUser&&currentUid&&catsByUser[currentUid])||null;
+  if(lista&&lista.length){
+    CATEGORIAS=lista.map(c=>({id:String(c.id),nome:String(c.nome),cor:String(c.cor)}));
+  }else{
+    CATEGORIAS=CAT_DEFAULT.map(c=>({...c}));
+  }
+  // garante que sempre exista a categoria "outros" como fallback
+  if(!CATEGORIAS.some(c=>c.id==="outros")){
+    CATEGORIAS.push({id:"outros",nome:"Outros",cor:"#78716c"});
+  }
 }
 function recarregarComprasDoUsuario(){
   compras=(STATE.compras||[])
@@ -705,46 +727,92 @@ preencherSelectCategoria();
 document.getElementById("data").value=ymdLocal(hojeLocal());
 
 // ---- modal editar categorias ----
+let editCats=[];   // cópia de trabalho enquanto o modal está aberto
+
 function abrirCatModal(){
-  const list=document.getElementById("catEditList");
-  list.innerHTML=CATEGORIAS.map(c=>`
-    <div class="cat-edit-row">
-      <span class="swatch" style="background:${c.cor}"></span>
-      <input type="text" data-id="${c.id}" value="${escapeHtml(c.nome)}" maxlength="24" placeholder="Nome da categoria">
-    </div>`).join("");
+  // parte das categorias atuais do usuário
+  editCats=CATEGORIAS.map(c=>({...c}));
+  renderCatEditList();
   document.getElementById("catModal").classList.add("open");
 }
 function fecharCatModal(){document.getElementById("catModal").classList.remove("open");}
-async function salvarCatNames(){
-  const inputs=document.querySelectorAll("#catEditList input");
-  const map={};
-  inputs.forEach(inp=>{
-    const id=inp.dataset.id;
-    const nome=inp.value.trim();
-    const padrao=CAT_DEFAULT.find(c=>c.id===id).nome;
-    if(nome && nome!==padrao) map[id]=nome;
+
+function catEmUso(catId){
+  return (STATE.compras||[]).some(c=>String(c.uid)===String(currentUid)&&String(c.catId)===String(catId));
+}
+
+function renderCatEditList(){
+  const list=document.getElementById("catEditList");
+  list.innerHTML=editCats.map((c,idx)=>{
+    const usada=catEmUso(c.id);
+    const ehOutros=c.id==="outros";
+    const bloqueado=usada||ehOutros;
+    const title=ehOutros?"A categoria Outros não pode ser removida":(usada?"Em uso por compras — não pode remover":"Remover categoria");
+    return `<div class="cat-edit-row">
+      <input type="color" value="${c.cor}" data-idx="${idx}" data-f="cor">
+      <input type="text" value="${escapeHtml(c.nome)}" data-idx="${idx}" data-f="nome" maxlength="24" placeholder="Nome da categoria">
+      <button class="rm" data-idx="${idx}" title="${title}" ${bloqueado?"disabled":""}>✕</button>
+    </div>`;
+  }).join("");
+  // liga edição
+  list.querySelectorAll("input").forEach(inp=>{
+    inp.oninput=()=>{
+      const i=+inp.dataset.idx, f=inp.dataset.f;
+      editCats[i][f]=inp.value;
+    };
   });
+  list.querySelectorAll(".rm").forEach(btn=>{
+    btn.onclick=()=>{
+      const i=+btn.dataset.idx;
+      editCats.splice(i,1);
+      renderCatEditList();
+    };
+  });
+}
+
+function addCatLinha(){
+  const usadas=editCats.map(c=>c.cor);
+  const cor=PALETA.find(p=>!usadas.includes(p))||PALETA[editCats.length%PALETA.length];
+  editCats.push({id:newCatId(),nome:"",cor});
+  renderCatEditList();
+  // foca o último nome
+  const inputs=document.querySelectorAll('#catEditList input[data-f="nome"]');
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+
+async function salvarCats(){
+  // valida e limpa
+  const lista=editCats
+    .map(c=>({id:c.id,nome:(c.nome||"").trim(),cor:c.cor}))
+    .filter(c=>c.nome!=="");
+  if(lista.length===0){alert("Tenha ao menos uma categoria com nome.");return;}
+  // garante "outros" como fallback
+  if(!lista.some(c=>c.id==="outros")){
+    lista.push({id:"outros",nome:"Outros",cor:"#78716c"});
+  }
   const btn=document.getElementById("catSave");btn.disabled=true;btn.textContent="Salvando...";
   try{
-    const res=await apiPost("setCatNames",{map});
+    const res=await apiPost("setCats",{uid:currentUid,lista});
     if(res&&res.ok){aplicarEstado(res.state);}
     else throw new Error(res&&res.error||"falha");
     preencherSelectCategoria();renderAll();fecharCatModal();
   }catch(e){alert("Não foi possível salvar as categorias online.\n\n"+e);}
   finally{btn.disabled=false;btn.textContent="Salvar";}
 }
-async function resetCatNames(){
-  if(!confirm("Restaurar os nomes originais das categorias?"))return;
+
+async function resetCats(){
+  if(!confirm("Restaurar as categorias padrão para este usuário? Categorias personalizadas que não estão em uso serão substituídas."))return;
   try{
-    const res=await apiPost("setCatNames",{map:{}});
+    const res=await apiPost("setCats",{uid:currentUid,lista:CAT_DEFAULT.map(c=>({...c}))});
     if(res&&res.ok){aplicarEstado(res.state);preencherSelectCategoria();renderAll();abrirCatModal();}
     else throw new Error(res&&res.error||"falha");
   }catch(e){alert("Falha ao restaurar online.\n\n"+e);}
 }
 document.getElementById("gearBtn").onclick=abrirCatModal;
 document.getElementById("catModalClose").onclick=fecharCatModal;
-document.getElementById("catSave").onclick=salvarCatNames;
-document.getElementById("catReset").onclick=resetCatNames;
+document.getElementById("catSave").onclick=salvarCats;
+document.getElementById("catAdd").onclick=addCatLinha;
+document.getElementById("catReset").onclick=resetCats;
 document.getElementById("catModal").onclick=e=>{if(e.target.id==="catModal")fecharCatModal();};
 
 // ---- usuários: UI ----
@@ -756,6 +824,7 @@ function renderUserSelect(){
 function trocarUsuario(uid){
   currentUid=uid;
   localStorage.setItem(CURRENT_USER_KEY,uid);
+  montarCategoriasDoUsuario();
   recarregarComprasDoUsuario();
   viewYM=invoiceOf(hojeLocal());
   renderAll();
