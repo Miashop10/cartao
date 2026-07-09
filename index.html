@@ -73,7 +73,9 @@
   .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
   .panel.form{padding:20px}
   .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.14em;margin:0;color:var(--ink-soft);font-weight:800}
-  .form-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .form-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:8px;flex-wrap:wrap}
+  .form-head h2{flex:1}
+  .form-head .gear{white-space:nowrap}
   .gear{border:1px solid var(--accent);background:#e9f3ef;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;flex-shrink:0;height:32px;padding:0 12px;border-radius:9px;font-size:12px;font-weight:700;font-family:inherit}
   .gear:hover{background:var(--accent);color:#fff}
   .gear span{white-space:nowrap}
@@ -130,6 +132,7 @@
   .desc{font-weight:600}
   .desc .meta{font-size:11.5px;color:var(--ink-soft);font-weight:500;margin-top:2px}
   .cat-chip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px;margin-top:4px;color:#fff}
+  .pg-chip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px;margin:4px 0 0 5px;color:var(--ink-soft);background:#ece6da;border:1px solid var(--line)}
   .parc-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--accent-2);background:#fdf0e9;border:1px solid #f6d7c5;border-radius:6px;padding:1px 7px;font-variant-numeric:tabular-nums}
   .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
   .orig{font-size:11px;color:var(--ink-soft);font-weight:500}
@@ -244,6 +247,10 @@
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Editar categorias</span>
           </button>
+          <button class="gear" id="cfgBtn" title="Formas de pagamento e dia de corte" aria-label="Configurações">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Pagamento</span>
+          </button>
         </div>
         <div class="field">
           <label for="data">Data da compra</label>
@@ -256,6 +263,10 @@
         <div class="field">
           <label for="categoria">Categoria</label>
           <select id="categoria"></select>
+        </div>
+        <div class="field">
+          <label for="formaPgto">Forma de pagamento</label>
+          <select id="formaPgto"></select>
         </div>
         <div class="field">
           <label for="moeda">Moeda da compra</label>
@@ -384,6 +395,10 @@
         <select id="e_categoria"></select>
       </div>
       <div class="field">
+        <label for="e_formaPgto">Forma de pagamento</label>
+        <select id="e_formaPgto"></select>
+      </div>
+      <div class="field">
         <label for="e_moeda">Moeda da compra</label>
         <select id="e_moeda">
           <option value="BRL">Real (R$)</option>
@@ -408,6 +423,32 @@
     <div class="modal-foot">
       <button class="btn sec" id="editCancel">Cancelar</button>
       <button class="btn" id="editSave">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: formas de pagamento e dia de corte -->
+<div class="modal-bg" id="cfgModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Pagamento e fatura</h3>
+      <button class="x" id="cfgModalClose" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-body">
+      <label style="font-weight:800;color:var(--ink);font-size:13px">Dia de corte da fatura</label>
+      <div class="modal-note" style="padding:4px 0 8px">Compras até este dia entram na fatura que vence dia 01 do mês seguinte. A partir do dia seguinte, vão para a fatura do mês subsequente.</div>
+      <div class="field">
+        <input type="number" id="cfgCorte" min="1" max="28" step="1">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <label style="font-weight:800;color:var(--ink);font-size:13px">Formas de pagamento</label>
+      <div class="modal-note" style="padding:4px 0 8px">Ex.: Pix, Cartão Nubank, Cartão Itaú. Crie quantas quiser.</div>
+      <div id="cfgPgtoList"></div>
+      <button class="btn sec" id="cfgPgtoAdd" style="width:100%;margin-top:4px">+ Adicionar forma de pagamento</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn sec" id="cfgCancel">Cancelar</button>
+      <button class="btn" id="cfgSave">Salvar</button>
     </div>
   </div>
 </div>
@@ -437,11 +478,20 @@ const CAT_DEFAULT=[
 ];
 // paleta sugerida para novas categorias
 const PALETA=["#c2410c","#0e7490","#16604a","#9a7b1f","#7c3aed","#be123c","#2563eb","#475569","#db2777","#78716c","#ca8a04","#15803d","#1d4ed8","#9333ea","#dc2626","#0891b2","#a16207","#4d7c0f","#b91c1c","#6d28d9"];
+// formas de pagamento padrão (usuário pode editar/criar)
+const PGTO_DEFAULT=[
+  {id:"credito",nome:"Cartão de Crédito"},
+  {id:"pix",nome:"Pix"}
+];
 
 // ---------- estado em memória (espelho do Sheets) ----------
-let STATE = { usuarios: [], compras: [], cats: {} };
+let STATE = { usuarios: [], compras: [], cats: {}, pgtos: {}, cortes: {} };
 let catsByUser = {};                  // { uid: [ {id,nome,cor} ] }
+let pgtosByUser = {};                 // { uid: [ {id,nome} ] }
+let cortesByUser = {};                // { uid: diaCorte }
 let CATEGORIAS = CAT_DEFAULT.map(c=>({...c}));
+let PGTOS = [];                       // formas de pagamento do usuário atual
+let CORTE = 24;                       // dia de corte do usuário atual
 
 const catById=id=>CATEGORIAS.find(c=>c.id===id)||CATEGORIAS[CATEGORIAS.length-1]||{id:"outros",nome:"Outros",cor:"#78716c"};
 const catColor=id=>catById(id).cor;
@@ -474,13 +524,17 @@ async function apiPost(action,payload){
 
 function aplicarEstado(state){
   STATE=state;
-  users=(state.usuarios||[]).map(u=>({id:String(u.id),nome:String(u.nome)}));
+  users=(state.usuarios||[]).map(u=>({id:limparId(u.id),nome:String(u.nome)}));
   catsByUser=state.cats||{};   // { uid: [ {id,nome,cor} ] }
+  pgtosByUser=state.pgtos||{}; // { uid: [ {id,nome} ] }
+  cortesByUser=state.cortes||{}; // { uid: diaCorte }
   if(!currentUid||!users.some(u=>u.id===currentUid)){
     currentUid=users.length?users[0].id:null;
     if(currentUid)localStorage.setItem(CURRENT_USER_KEY,currentUid);
   }
   montarCategoriasDoUsuario();
+  montarPgtosDoUsuario();
+  montarCorteDoUsuario();
   recarregarComprasDoUsuario();
 }
 // monta CATEGORIAS do usuário atual; se ainda não tem lista própria, usa as padrão
@@ -491,17 +545,27 @@ function montarCategoriasDoUsuario(){
   }else{
     CATEGORIAS=CAT_DEFAULT.map(c=>({...c}));
   }
-  // garante que sempre exista a categoria "outros" como fallback
   if(!CATEGORIAS.some(c=>c.id==="outros")){
     CATEGORIAS.push({id:"outros",nome:"Outros",cor:"#78716c"});
   }
 }
+function montarPgtosDoUsuario(){
+  const lista=(pgtosByUser&&currentUid&&pgtosByUser[currentUid])||null;
+  PGTOS=(lista&&lista.length)?lista.map(p=>({id:String(p.id),nome:String(p.nome)})):PGTO_DEFAULT.map(p=>({...p}));
+}
+function montarCorteDoUsuario(){
+  const c=(cortesByUser&&currentUid&&cortesByUser[currentUid])||null;
+  CORTE=(c&&Number(c)>=1&&Number(c)<=28)?Number(c):24;
+}
+const pgtoNome=id=>{const p=PGTOS.find(x=>x.id===id);return p?p.nome:"";};
+function limparId(v){return String(v==null?"":v).replace(/^'/,"").trim();}
 function recarregarComprasDoUsuario(){
+  const alvo=limparId(currentUid);
   compras=(STATE.compras||[])
-    .filter(c=>String(c.uid)===String(currentUid))
+    .filter(c=>limparId(c.uid)===alvo)
     .map(c=>({
-      id:String(c.id),
-      uid:String(c.uid),
+      id:limparId(c.id),
+      uid:limparId(c.uid),
       data:normalizarData(c.data),
       desc:String(c.desc||""),
       catId:String(c.catId||"outros"),
@@ -510,7 +574,8 @@ function recarregarComprasDoUsuario(){
       valorOrig:Number(c.valorOrig)||0,
       rate:Number(c.rate)||1,
       valorBRL:Number(c.valorBRL)||0,
-      fxDate:c.fxDate||null
+      fxDate:c.fxDate||null,
+      formaPgto:String(c.formaPgto||"")
     }));
 }
 // aceita "2025-06-20", "2025-06-20T..", Date serializado, ou dd/mm/yyyy -> retorna YYYY-MM-DD
@@ -530,7 +595,6 @@ function normalizarData(v){
 
 function loadFx(){try{return JSON.parse(localStorage.getItem(FX_KEY))||null}catch(e){return null}}
 function saveFx(){localStorage.setItem(FX_KEY,JSON.stringify(fx))}
-function saveFx(){localStorage.setItem(FX_KEY,JSON.stringify(fx))}
 
 const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const symbol={BRL:"R$",USD:"US$",EUR:"€",CNY:"¥"};
@@ -541,10 +605,12 @@ function ymdLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function parseData(s){const [y,m,d]=String(s).substring(0,10).split("-").map(Number);return new Date(y,(m||1)-1,d||1);}
 
 // ---- regra da fatura ----
+// compra até o dia de corte (CORTE) -> fatura vence dia 01 do mês seguinte
+// a partir do dia de corte+1 -> pula para a fatura do mês subsequente
 function invoiceOf(date){
   const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
   let y=d.getFullYear(),m=d.getMonth();
-  const add=d.getDate()<=24?1:2;
+  const add=d.getDate()<=CORTE?1:2;
   m+=add;while(m>11){m-=12;y++;}
   return{y,m};
 }
@@ -573,6 +639,7 @@ async function addCompra(){
   const data=document.getElementById("data").value;
   const desc=document.getElementById("desc").value.trim();
   const catId=document.getElementById("categoria").value;
+  const formaPgto=document.getElementById("formaPgto").value;
   const moeda=document.getElementById("moeda").value;
   const valor=parseFloat(document.getElementById("valor").value);
   const parcelas=Math.max(1,parseInt(document.getElementById("parcelas").value)||1);
@@ -585,7 +652,7 @@ async function addCompra(){
     if(!fx||!fx[moeda]){alert("Cotação ainda não carregada. Clique em 'atualizar'.");return;}
     rate=fx[moeda];valorBRL=valor*rate;
   }
-  const compra={id:newId(),uid:currentUid,data,desc,catId,moeda,parcelas,valorOrig:valor,rate,valorBRL,fxDate:moeda!=="BRL"?fx.date:null};
+  const compra={id:newId(),uid:currentUid,data,desc,catId,formaPgto,moeda,parcelas,valorOrig:valor,rate,valorBRL,fxDate:moeda!=="BRL"?fx.date:null};
   const btn=document.getElementById("addBtn");btn.disabled=true;btn.textContent="Salvando...";
   try{
     const res=await apiPost("addCompra",compra);
@@ -615,7 +682,7 @@ function parcelasDaFatura(ym){
     for(let p=0;p<c.parcelas;p++){
       const venc=ymAdd(base,p);
       if(venc.y===ym.y&&venc.m===ym.m){
-        itens.push({id:c.id,desc:c.desc,catId:c.catId,moeda:c.moeda,parcelaNum:p+1,parcelaTot:c.parcelas,dataCompra:c.data,valorOrig:c.valorOrig,valorBRL:c.valorBRL/c.parcelas});
+        itens.push({id:c.id,desc:c.desc,catId:c.catId,formaPgto:c.formaPgto,moeda:c.moeda,parcelaNum:p+1,parcelaTot:c.parcelas,dataCompra:c.data,valorOrig:c.valorOrig,valorBRL:c.valorBRL/c.parcelas});
       }
     }
   });
@@ -645,7 +712,7 @@ function renderRecent(){
     const orig=c.moeda!=="BRL"?`<div class="orig">${symbol[c.moeda]} ${c.valorOrig.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>`:"";
     body.insertAdjacentHTML("beforeend",`
       <tr>
-        <td class="desc">${escapeHtml(c.desc)}<div><span class="cat-chip" style="background:${catColor(c.catId)}">${escapeHtml(catNome(c.catId))}</span></div></td>
+        <td class="desc">${escapeHtml(c.desc)}<div><span class="cat-chip" style="background:${catColor(c.catId)}">${escapeHtml(catNome(c.catId))}</span>${c.formaPgto?`<span class="pg-chip">${escapeHtml(pgtoNome(c.formaPgto))}</span>`:""}</div></td>
         <td>${dt}<div class="meta">${parc}</div></td>
         <td class="val">${brl(c.valorBRL)}${orig}</td>
         <td><div class="acts"><button class="edit" title="Editar" onclick="abrirEdicao('${c.id}')">✎</button><button class="del" title="Excluir" onclick="delCompra('${c.id}')">✕</button></div></td>
@@ -666,7 +733,7 @@ function renderFatura(){
     const parc=i.parcelaTot>1?`<span class="parc-tag">${i.parcelaNum}/${i.parcelaTot}</span>`:`<span class="parc-tag" style="color:var(--accent);background:#e9f3ef;border-color:#c7e2d6">à vista</span>`;
     body.insertAdjacentHTML("beforeend",`
       <tr>
-        <td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}</div><div><span class="cat-chip" style="background:${catColor(i.catId)}">${escapeHtml(catNome(i.catId))}</span></div></td>
+        <td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}</div><div><span class="cat-chip" style="background:${catColor(i.catId)}">${escapeHtml(catNome(i.catId))}</span>${i.formaPgto?`<span class="pg-chip">${escapeHtml(pgtoNome(i.formaPgto))}</span>`:""}</div></td>
         <td>${parc}</td>
         <td class="val">${brl(i.valorBRL)}${orig}</td>
         <td><div class="acts"><button class="edit" title="Editar" onclick="abrirEdicao('${i.id}')">✎</button><button class="del" title="Excluir" onclick="delCompra('${i.id}')">✕</button></div></td>
@@ -768,7 +835,7 @@ function updateConvHint(){
   if(!fx||!fx[moeda]){hint.textContent="Cotação não carregada.";return;}
   hint.textContent=`≈ ${brl(valor*fx[moeda])} (cotação ${fx[moeda].toLocaleString("pt-BR",{minimumFractionDigits:4})})`;
 }
-function renderAll(){if(typeof preencherSelectCategoria==="function")preencherSelectCategoria();renderRecent();renderFatura();renderCategorias();}
+function renderAll(){if(typeof preencherSelectCategoria==="function")preencherSelectCategoria();if(typeof preencherSelectPgto==="function")preencherSelectPgto();renderRecent();renderFatura();renderCategorias();}
 
 // ---- tabs ----
 document.querySelectorAll(".tab").forEach(t=>{
@@ -809,7 +876,14 @@ function preencherSelectCategoria(){
   sel.innerHTML=CATEGORIAS.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join("");
   if([...sel.options].some(o=>o.value===prev))sel.value=prev;
 }
+function preencherSelectPgto(){
+  const sel=document.getElementById("formaPgto");
+  const prev=sel.value;
+  sel.innerHTML=PGTOS.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join("");
+  if([...sel.options].some(o=>o.value===prev))sel.value=prev;
+}
 preencherSelectCategoria();
+preencherSelectPgto();
 document.getElementById("data").value=ymdLocal(hojeLocal());
 
 // ---- modal editar categorias ----
@@ -910,9 +984,12 @@ function abrirEdicao(id){
   // categorias do usuário atual no select
   const sel=document.getElementById("e_categoria");
   sel.innerHTML=CATEGORIAS.map(k=>`<option value="${k.id}">${escapeHtml(k.nome)}</option>`).join("");
+  const selp=document.getElementById("e_formaPgto");
+  selp.innerHTML=PGTOS.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join("");
   document.getElementById("e_data").value=c.data;
   document.getElementById("e_desc").value=c.desc;
   sel.value=c.catId;
+  selp.value=c.formaPgto||"";
   document.getElementById("e_moeda").value=c.moeda;
   // mostra o valor na MOEDA ORIGINAL da compra
   document.getElementById("e_valor").value=c.valorOrig;
@@ -937,6 +1014,7 @@ async function salvarEdicao(){
   const data=document.getElementById("e_data").value;
   const desc=document.getElementById("e_desc").value.trim();
   const catId=document.getElementById("e_categoria").value;
+  const formaPgto=document.getElementById("e_formaPgto").value;
   const moeda=document.getElementById("e_moeda").value;
   const valor=parseFloat(document.getElementById("e_valor").value);
   const parcelas=Math.max(1,parseInt(document.getElementById("e_parcelas").value)||1);
@@ -952,7 +1030,7 @@ async function salvarEdicao(){
       rate=fx[moeda];valorBRL=valor*rate;
     }
   }
-  const compra={id:orig.id,uid:currentUid,data,desc,catId,moeda,parcelas,valorOrig:valor,rate,valorBRL,fxDate:moeda!=="BRL"?(moeda===orig.moeda?orig.fxDate:fx.date):null};
+  const compra={id:orig.id,uid:currentUid,data,desc,catId,formaPgto,moeda,parcelas,valorOrig:valor,rate,valorBRL,fxDate:moeda!=="BRL"?(moeda===orig.moeda?orig.fxDate:fx.date):null};
   const btn=document.getElementById("editSave");btn.disabled=true;btn.textContent="Salvando...";
   try{
     const res=await apiPost("updateCompra",compra);
@@ -968,6 +1046,62 @@ document.getElementById("e_moeda").onchange=updateEditConvHint;
 document.getElementById("e_valor").oninput=updateEditConvHint;
 document.getElementById("editModal").onclick=e=>{if(e.target.id==="editModal")fecharEdicao();};
 
+// ---- modal config: formas de pagamento + dia de corte ----
+let editPgtos=[];
+function abrirCfg(){
+  document.getElementById("cfgCorte").value=CORTE;
+  editPgtos=PGTOS.map(p=>({...p}));
+  renderCfgPgtoList();
+  document.getElementById("cfgModal").classList.add("open");
+}
+function fecharCfg(){document.getElementById("cfgModal").classList.remove("open");}
+function pgtoEmUso(pgtoId){
+  return (STATE.compras||[]).some(c=>limparId(c.uid)===limparId(currentUid)&&String(c.formaPgto)===String(pgtoId));
+}
+function renderCfgPgtoList(){
+  const list=document.getElementById("cfgPgtoList");
+  list.innerHTML=editPgtos.map((p,idx)=>{
+    const usada=pgtoEmUso(p.id);
+    return `<div class="cat-edit-row">
+      <input type="text" value="${escapeHtml(p.nome)}" data-idx="${idx}" maxlength="28" placeholder="Nome (ex.: Cartão Nubank)">
+      <button class="rm" data-idx="${idx}" title="${usada?'Em uso — não pode remover':'Remover'}" ${usada?"disabled":""}>✕</button>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("input").forEach(inp=>{
+    inp.oninput=()=>{editPgtos[+inp.dataset.idx].nome=inp.value;};
+  });
+  list.querySelectorAll(".rm").forEach(btn=>{
+    btn.onclick=()=>{editPgtos.splice(+btn.dataset.idx,1);renderCfgPgtoList();};
+  });
+}
+function addPgtoLinha(){
+  editPgtos.push({id:newCatId(),nome:""});
+  renderCfgPgtoList();
+  const inputs=document.querySelectorAll("#cfgPgtoList input");
+  if(inputs.length)inputs[inputs.length-1].focus();
+}
+async function salvarCfg(){
+  const dia=Math.min(28,Math.max(1,parseInt(document.getElementById("cfgCorte").value)||24));
+  const lista=editPgtos.map(p=>({id:p.id,nome:(p.nome||"").trim()})).filter(p=>p.nome!=="");
+  const btn=document.getElementById("cfgSave");btn.disabled=true;btn.textContent="Salvando...";
+  try{
+    let res=await apiPost("setCorte",{uid:currentUid,dia});
+    if(!(res&&res.ok))throw new Error(res&&res.error||"falha ao salvar corte");
+    res=await apiPost("setPgtos",{uid:currentUid,lista});
+    if(!(res&&res.ok))throw new Error(res&&res.error||"falha ao salvar pagamentos");
+    aplicarEstado(res.state);
+    viewYM=invoiceOf(hojeLocal());
+    renderAll();fecharCfg();
+  }catch(e){alert("Não foi possível salvar as configurações online.\n\n"+e);}
+  finally{btn.disabled=false;btn.textContent="Salvar";}
+}
+document.getElementById("cfgBtn").onclick=abrirCfg;
+document.getElementById("cfgModalClose").onclick=fecharCfg;
+document.getElementById("cfgCancel").onclick=fecharCfg;
+document.getElementById("cfgPgtoAdd").onclick=addPgtoLinha;
+document.getElementById("cfgSave").onclick=salvarCfg;
+document.getElementById("cfgModal").onclick=e=>{if(e.target.id==="cfgModal")fecharCfg();};
+
 // ---- usuários: UI ----
 function renderUserSelect(){
   const sel=document.getElementById("userSelect");
@@ -978,6 +1112,8 @@ function trocarUsuario(uid){
   currentUid=uid;
   localStorage.setItem(CURRENT_USER_KEY,uid);
   montarCategoriasDoUsuario();
+  montarPgtosDoUsuario();
+  montarCorteDoUsuario();
   recarregarComprasDoUsuario();
   viewYM=invoiceOf(hojeLocal());
   renderAll();
