@@ -351,6 +351,20 @@
       </div>
     </div>
     <div class="empty" id="catEmpty" style="display:none">Nenhuma despesa para exibir. Cadastre compras na aba "Cadastro".</div>
+
+    <div id="catDetail" class="panel" style="display:none;margin-top:22px">
+      <div class="invoice-head">
+        <div>
+          <div class="label" id="catDetailTitle">Categoria</div>
+          <div class="due" id="catDetailCount"></div>
+        </div>
+        <div class="total" id="catDetailTotal">R$ 0,00</div>
+      </div>
+      <table>
+        <thead><tr><th>Descrição</th><th>Compra</th><th class="val">Valor</th></tr></thead>
+        <tbody id="catDetailBody"></tbody>
+      </table>
+    </div>
   </section>
 
 </div>
@@ -435,10 +449,18 @@
       <button class="x" id="cfgModalClose" aria-label="Fechar">×</button>
     </div>
     <div class="modal-body">
-      <label style="font-weight:800;color:var(--ink);font-size:13px">Dia de corte da fatura</label>
-      <div class="modal-note" style="padding:4px 0 8px">Compras até este dia entram na fatura que vence dia 01 do mês seguinte. A partir do dia seguinte, vão para a fatura do mês subsequente.</div>
-      <div class="field">
-        <input type="number" id="cfgCorte" min="1" max="28" step="1">
+      <label style="font-weight:800;color:var(--ink);font-size:13px">Ciclo da fatura</label>
+      <div class="modal-note" style="padding:4px 0 8px">Escolha como as compras são agrupadas em faturas.</div>
+      <label style="display:flex;align-items:center;gap:9px;font-weight:600;color:var(--ink);margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="cfgMensal" style="width:auto">
+        Mensal — a compra entra na fatura do próprio mês (sem data de corte)
+      </label>
+      <div id="cfgCorteWrap">
+        <label for="cfgCorte" style="font-size:12px;color:var(--ink-soft);font-weight:600">Dia de corte da fatura</label>
+        <div class="modal-note" style="padding:4px 0 8px">Compras até este dia vencem no dia 01 do mês seguinte; a partir do dia seguinte, vão para o mês subsequente.</div>
+        <div class="field">
+          <input type="number" id="cfgCorte" min="1" max="28" step="1">
+        </div>
       </div>
       <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
       <label style="font-weight:800;color:var(--ink);font-size:13px">Formas de pagamento</label>
@@ -554,8 +576,8 @@ function montarPgtosDoUsuario(){
   PGTOS=(lista&&lista.length)?lista.map(p=>({id:String(p.id),nome:String(p.nome)})):PGTO_DEFAULT.map(p=>({...p}));
 }
 function montarCorteDoUsuario(){
-  const c=(cortesByUser&&currentUid&&cortesByUser[currentUid])||null;
-  CORTE=(c&&Number(c)>=1&&Number(c)<=28)?Number(c):24;
+  const c=(cortesByUser&&currentUid&&(currentUid in cortesByUser))?cortesByUser[currentUid]:null;
+  CORTE=(c!==null&&Number(c)>=0&&Number(c)<=28)?Number(c):24;
 }
 const pgtoNome=id=>{const p=PGTOS.find(x=>x.id===id);return p?p.nome:"";};
 function limparId(v){return String(v==null?"":v).replace(/^'/,"").trim();}
@@ -605,11 +627,13 @@ function ymdLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function parseData(s){const [y,m,d]=String(s).substring(0,10).split("-").map(Number);return new Date(y,(m||1)-1,d||1);}
 
 // ---- regra da fatura ----
-// compra até o dia de corte (CORTE) -> fatura vence dia 01 do mês seguinte
-// a partir do dia de corte+1 -> pula para a fatura do mês subsequente
+// CORTE = 0  -> modo MENSAL: a compra cai na fatura do próprio mês da compra
+// CORTE >= 1 -> compra até o dia CORTE vence dia 01 do mês seguinte;
+//               a partir do dia CORTE+1 pula para o mês subsequente
 function invoiceOf(date){
   const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
   let y=d.getFullYear(),m=d.getMonth();
+  if(CORTE<=0){ return {y,m}; }   // mensal: fatura = mês da compra
   const add=d.getDate()<=CORTE?1:2;
   m+=add;while(m>11){m-=12;y++;}
   return{y,m};
@@ -773,7 +797,7 @@ function dadosCategoria(){
     const [y,m]=scope.split("-").map(Number);
     parcelasDaFatura({y,m}).forEach(i=>acc(i.catId,i.valorBRL));
   }
-  const arr=Object.entries(map).map(([id,valor])=>({nome:catNome(id),valor,cor:catColor(id)})).sort((a,b)=>b.valor-a.valor);
+  const arr=Object.entries(map).map(([id,valor])=>({id,nome:catNome(id),valor,cor:catColor(id)})).sort((a,b)=>b.valor-a.valor);
   const total=arr.reduce((s,d)=>s+d.valor,0);
   return{arr,total};
 }
@@ -796,8 +820,8 @@ function renderCategorias(){
   arr.forEach(d=>{
     const frac=d.valor/total;const len=frac*C;
     svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.cor}" stroke-width="${sw}"
-      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-offset}"
-      transform="rotate(-90 ${cx} ${cy})"><title>${escapeHtml(d.nome)}: ${(frac*100).toFixed(1)}%</title></circle>`;
+      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-offset}" style="cursor:pointer"
+      transform="rotate(-90 ${cx} ${cy})" onclick="mostrarComprasCategoria('${d.id}')"><title>${escapeHtml(d.nome)}: ${(frac*100).toFixed(1)}%</title></circle>`;
     offset+=len;
   });
   svg+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="11" fill="#46535f" font-weight="700">TOTAL</text>`;
@@ -806,7 +830,7 @@ function renderCategorias(){
 
   legend.innerHTML=arr.map(d=>{
     const pct=(d.valor/total*100);
-    return `<div class="legend-row">
+    return `<div class="legend-row" style="cursor:pointer" onclick="mostrarComprasCategoria('${d.id}')" title="Ver compras desta categoria">
       <span class="dot" style="background:${d.cor}"></span>
       <span class="lg-name">${escapeHtml(d.nome)}</span>
       <span class="lg-pct">${pct.toFixed(1)}%</span>
@@ -817,11 +841,50 @@ function renderCategorias(){
   const max=arr[0].valor;
   bars.innerHTML=arr.map(d=>{
     const pct=(d.valor/total*100);const w=(d.valor/max*100);
-    return `<div class="bar-row">
+    return `<div class="bar-row" style="cursor:pointer" onclick="mostrarComprasCategoria('${d.id}')" title="Ver compras desta categoria">
       <div class="bar-top"><span class="bn">${escapeHtml(d.nome)}</span><span class="bv">${brl(d.valor)} · ${pct.toFixed(1)}%</span></div>
       <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${d.cor}"></div></div>
     </div>`;
   }).join("");
+
+  // se um detalhe estava aberto, atualiza; senão mantém escondido
+  if(catDetailAtual){mostrarComprasCategoria(catDetailAtual);}
+}
+
+// ---- detalhe: compras de uma categoria ----
+let catDetailAtual=null;
+function comprasDaCategoria(catId){
+  const scope=document.getElementById("catScope").value;
+  const itens=[];
+  if(scope==="all"){
+    compras.filter(c=>String(c.catId)===String(catId)).forEach(c=>{
+      itens.push({desc:c.desc,data:c.data,valorBRL:c.valorBRL,parcelaTot:c.parcelas});
+    });
+  }else{
+    const [y,m]=scope.split("-").map(Number);
+    parcelasDaFatura({y,m}).filter(i=>String(i.catId)===String(catId)).forEach(i=>{
+      itens.push({desc:i.desc,data:i.dataCompra,valorBRL:i.valorBRL,parcelaNum:i.parcelaNum,parcelaTot:i.parcelaTot});
+    });
+  }
+  itens.sort((a,b)=>b.data.localeCompare(a.data));
+  return itens;
+}
+function mostrarComprasCategoria(catId){
+  catDetailAtual=catId;
+  const itens=comprasDaCategoria(catId);
+  const total=itens.reduce((s,i)=>s+i.valorBRL,0);
+  document.getElementById("catDetailTitle").textContent=catNome(catId);
+  document.getElementById("catDetailCount").textContent=`${itens.length} ${itens.length===1?"lançamento":"lançamentos"}`;
+  document.getElementById("catDetailTotal").textContent=brl(total);
+  const body=document.getElementById("catDetailBody");
+  body.innerHTML=itens.map(i=>{
+    const dt=i.data.split("-").reverse().join("/");
+    const parc=i.parcelaTot>1?(i.parcelaNum?` · ${i.parcelaNum}/${i.parcelaTot}`:` · ${i.parcelaTot}x`):"";
+    return `<tr><td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}${parc}</div></td><td>${dt}</td><td class="val">${brl(i.valorBRL)}</td></tr>`;
+  }).join("")||`<tr><td colspan="3" class="empty">Nenhuma compra nesta categoria.</td></tr>`;
+  const box=document.getElementById("catDetail");
+  box.style.display="block";
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 
 // ---- utils ----
@@ -868,7 +931,7 @@ document.getElementById("nextM").onclick=()=>{viewYM=ymAdd(viewYM,1);renderFatur
 document.getElementById("fxRefresh").onclick=fetchFx;
 document.getElementById("moeda").onchange=updateConvHint;
 document.getElementById("valor").oninput=updateConvHint;
-document.getElementById("catScope").onchange=renderCategorias;
+document.getElementById("catScope").onchange=()=>{catDetailAtual=null;document.getElementById("catDetail").style.display="none";renderCategorias();};
 
 function preencherSelectCategoria(){
   const sel=document.getElementById("categoria");
@@ -1049,7 +1112,10 @@ document.getElementById("editModal").onclick=e=>{if(e.target.id==="editModal")fe
 // ---- modal config: formas de pagamento + dia de corte ----
 let editPgtos=[];
 function abrirCfg(){
-  document.getElementById("cfgCorte").value=CORTE;
+  const mensal=(CORTE<=0);
+  document.getElementById("cfgMensal").checked=mensal;
+  document.getElementById("cfgCorte").value=mensal?24:CORTE;
+  document.getElementById("cfgCorteWrap").style.display=mensal?"none":"";
   editPgtos=PGTOS.map(p=>({...p}));
   renderCfgPgtoList();
   document.getElementById("cfgModal").classList.add("open");
@@ -1081,7 +1147,8 @@ function addPgtoLinha(){
   if(inputs.length)inputs[inputs.length-1].focus();
 }
 async function salvarCfg(){
-  const dia=Math.min(28,Math.max(1,parseInt(document.getElementById("cfgCorte").value)||24));
+  const mensal=document.getElementById("cfgMensal").checked;
+  const dia=mensal?0:Math.min(28,Math.max(1,parseInt(document.getElementById("cfgCorte").value)||24));
   const lista=editPgtos.map(p=>({id:p.id,nome:(p.nome||"").trim()})).filter(p=>p.nome!=="");
   const btn=document.getElementById("cfgSave");btn.disabled=true;btn.textContent="Salvando...";
   try{
@@ -1095,6 +1162,9 @@ async function salvarCfg(){
   }catch(e){alert("Não foi possível salvar as configurações online.\n\n"+e);}
   finally{btn.disabled=false;btn.textContent="Salvar";}
 }
+document.getElementById("cfgMensal").onchange=function(){
+  document.getElementById("cfgCorteWrap").style.display=this.checked?"none":"";
+};
 document.getElementById("cfgBtn").onclick=abrirCfg;
 document.getElementById("cfgModalClose").onclick=fecharCfg;
 document.getElementById("cfgCancel").onclick=fecharCfg;
@@ -1111,6 +1181,8 @@ function renderUserSelect(){
 function trocarUsuario(uid){
   currentUid=uid;
   localStorage.setItem(CURRENT_USER_KEY,uid);
+  catDetailAtual=null;
+  const cd=document.getElementById("catDetail");if(cd)cd.style.display="none";
   montarCategoriasDoUsuario();
   montarPgtosDoUsuario();
   montarCorteDoUsuario();
