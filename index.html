@@ -858,12 +858,14 @@ function comprasDaCategoria(catId){
   const itens=[];
   if(scope==="all"){
     compras.filter(c=>String(c.catId)===String(catId)).forEach(c=>{
-      itens.push({desc:c.desc,data:c.data,valorBRL:c.valorBRL,parcelaTot:c.parcelas});
+      itens.push({desc:c.desc,data:c.data,valorBRL:c.valorBRL,moeda:c.moeda,valorOrig:c.valorOrig,parcelaTot:c.parcelas});
     });
   }else{
     const [y,m]=scope.split("-").map(Number);
     parcelasDaFatura({y,m}).filter(i=>String(i.catId)===String(catId)).forEach(i=>{
-      itens.push({desc:i.desc,data:i.dataCompra,valorBRL:i.valorBRL,parcelaNum:i.parcelaNum,parcelaTot:i.parcelaTot});
+      // no recorte por fatura, mostramos o valor da parcela também na moeda original
+      const origParcela=i.parcelaTot>1?(i.valorOrig/i.parcelaTot):i.valorOrig;
+      itens.push({desc:i.desc,data:i.dataCompra,valorBRL:i.valorBRL,moeda:i.moeda,valorOrig:origParcela,parcelaNum:i.parcelaNum,parcelaTot:i.parcelaTot});
     });
   }
   itens.sort((a,b)=>b.data.localeCompare(a.data));
@@ -880,7 +882,8 @@ function mostrarComprasCategoria(catId){
   body.innerHTML=itens.map(i=>{
     const dt=i.data.split("-").reverse().join("/");
     const parc=i.parcelaTot>1?(i.parcelaNum?` · ${i.parcelaNum}/${i.parcelaTot}`:` · ${i.parcelaTot}x`):"";
-    return `<tr><td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}${parc}</div></td><td>${dt}</td><td class="val">${brl(i.valorBRL)}</td></tr>`;
+    const orig=(i.moeda&&i.moeda!=="BRL")?`<div class="orig">${symbol[i.moeda]} ${i.valorOrig.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>`:"";
+    return `<tr><td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}${parc}</div></td><td>${dt}</td><td class="val">${brl(i.valorBRL)}${orig}</td></tr>`;
   }).join("")||`<tr><td colspan="3" class="empty">Nenhuma compra nesta categoria.</td></tr>`;
   const box=document.getElementById("catDetail");
   box.style.display="block";
