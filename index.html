@@ -289,7 +289,7 @@
         </div>
         <div class="conv-hint" id="convHint"></div>
         <button class="btn" id="addBtn">Adicionar compra</button>
-        <button class="btn ghost" id="clearBtn">Apagar todos os dados</button>
+        <button class="btn ghost" id="clearBtn">Zerar sistema deste usuário</button>
       </div>
 
       <div class="panel">
@@ -361,7 +361,7 @@
         <div class="total" id="catDetailTotal">R$ 0,00</div>
       </div>
       <table>
-        <thead><tr><th>Descrição</th><th>Compra</th><th class="val">Valor</th></tr></thead>
+        <thead><tr><th>Descrição</th><th class="val">Valor</th><th></th></tr></thead>
         <tbody id="catDetailBody"></tbody>
       </table>
     </div>
@@ -858,14 +858,13 @@ function comprasDaCategoria(catId){
   const itens=[];
   if(scope==="all"){
     compras.filter(c=>String(c.catId)===String(catId)).forEach(c=>{
-      itens.push({desc:c.desc,data:c.data,valorBRL:c.valorBRL,moeda:c.moeda,valorOrig:c.valorOrig,parcelaTot:c.parcelas});
+      itens.push({id:c.id,desc:c.desc,data:c.data,valorBRL:c.valorBRL,moeda:c.moeda,valorOrig:c.valorOrig,parcelaTot:c.parcelas});
     });
   }else{
     const [y,m]=scope.split("-").map(Number);
     parcelasDaFatura({y,m}).filter(i=>String(i.catId)===String(catId)).forEach(i=>{
-      // no recorte por fatura, mostramos o valor da parcela também na moeda original
       const origParcela=i.parcelaTot>1?(i.valorOrig/i.parcelaTot):i.valorOrig;
-      itens.push({desc:i.desc,data:i.dataCompra,valorBRL:i.valorBRL,moeda:i.moeda,valorOrig:origParcela,parcelaNum:i.parcelaNum,parcelaTot:i.parcelaTot});
+      itens.push({id:i.id,desc:i.desc,data:i.dataCompra,valorBRL:i.valorBRL,moeda:i.moeda,valorOrig:origParcela,parcelaNum:i.parcelaNum,parcelaTot:i.parcelaTot});
     });
   }
   itens.sort((a,b)=>b.data.localeCompare(a.data));
@@ -883,7 +882,7 @@ function mostrarComprasCategoria(catId){
     const dt=i.data.split("-").reverse().join("/");
     const parc=i.parcelaTot>1?(i.parcelaNum?` · ${i.parcelaNum}/${i.parcelaTot}`:` · ${i.parcelaTot}x`):"";
     const orig=(i.moeda&&i.moeda!=="BRL")?`<div class="orig">${symbol[i.moeda]} ${i.valorOrig.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>`:"";
-    return `<tr><td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}${parc}</div></td><td>${dt}</td><td class="val">${brl(i.valorBRL)}${orig}</td></tr>`;
+    return `<tr><td class="desc">${escapeHtml(i.desc)}<div class="meta">compra ${dt}${parc}</div></td><td class="val">${brl(i.valorBRL)}${orig}</td><td><div class="acts"><button class="edit" title="Editar" onclick="abrirEdicao('${i.id}')">✎</button><button class="del" title="Excluir" onclick="delCompra('${i.id}')">✕</button></div></td></tr>`;
   }).join("")||`<tr><td colspan="3" class="empty">Nenhuma compra nesta categoria.</td></tr>`;
   const box=document.getElementById("catDetail");
   box.style.display="block";
@@ -918,16 +917,20 @@ document.querySelectorAll(".tab").forEach(t=>{
 // ---- eventos ----
 document.getElementById("addBtn").onclick=addCompra;
 document.getElementById("clearBtn").onclick=async()=>{
-  if(!currentUid)return;
+  if(!currentUid){alert("Selecione um usuário.");return;}
   const u=users.find(x=>x.id===currentUid);
-  if(!confirm(`Apagar TODAS as compras do usuário "${u?u.nome:''}"? Esta ação não pode ser desfeita.`))return;
-  const lista=compras.slice();
+  const nome=u?u.nome:"";
+  if(!confirm(`ZERAR o sistema do usuário "${nome}"?\n\nIsto apaga TODAS as compras dele. As categorias, formas de pagamento e o próprio usuário são mantidos.\n\nEsta ação não pode ser desfeita.`))return;
+  const conf=prompt(`Para confirmar, digite o nome do usuário exatamente: ${nome}`);
+  if(conf===null)return;
+  if(conf.trim()!==nome){alert("Nome não confere. Nada foi apagado.");return;}
+  const btn=document.getElementById("clearBtn");btn.disabled=true;btn.textContent="Zerando...";
   try{
-    let last=null;
-    for(const c of lista){ last=await apiPost("delCompra",{id:c.id}); }
-    if(last&&last.ok)aplicarEstado(last.state);
-    renderAll();
-  }catch(e){alert("Falha ao apagar online.\n\n"+e);}
+    const res=await apiPost("clearCompras",{uid:currentUid});
+    if(res&&res.ok){aplicarEstado(res.state);renderAll();}
+    else throw new Error(res&&res.error||"falha");
+  }catch(e){alert("Falha ao zerar online.\n\n"+e);}
+  finally{btn.disabled=false;btn.textContent="Zerar sistema deste usuário";}
 };
 document.getElementById("prevM").onclick=()=>{viewYM=ymAdd(viewYM,-1);renderFatura();};
 document.getElementById("nextM").onclick=()=>{viewYM=ymAdd(viewYM,1);renderFatura();};
@@ -1114,33 +1117,49 @@ document.getElementById("editModal").onclick=e=>{if(e.target.id==="editModal")fe
 
 // ---- modal config: formas de pagamento + dia de corte ----
 let editPgtos=[];
+let pgtosParaDesvincular=[];
 function abrirCfg(){
   const mensal=(CORTE<=0);
   document.getElementById("cfgMensal").checked=mensal;
   document.getElementById("cfgCorte").value=mensal?24:CORTE;
   document.getElementById("cfgCorteWrap").style.display=mensal?"none":"";
   editPgtos=PGTOS.map(p=>({...p}));
+  pgtosParaDesvincular=[];
   renderCfgPgtoList();
   document.getElementById("cfgModal").classList.add("open");
 }
 function fecharCfg(){document.getElementById("cfgModal").classList.remove("open");}
 function pgtoEmUso(pgtoId){
-  return (STATE.compras||[]).some(c=>limparId(c.uid)===limparId(currentUid)&&String(c.formaPgto)===String(pgtoId));
+  return (STATE.compras||[]).filter(c=>limparId(c.uid)===limparId(currentUid)&&String(c.formaPgto)===String(pgtoId)).length;
 }
 function renderCfgPgtoList(){
   const list=document.getElementById("cfgPgtoList");
   list.innerHTML=editPgtos.map((p,idx)=>{
-    const usada=pgtoEmUso(p.id);
-    return `<div class="cat-edit-row">
-      <input type="text" value="${escapeHtml(p.nome)}" data-idx="${idx}" maxlength="28" placeholder="Nome (ex.: Cartão Nubank)">
-      <button class="rm" data-idx="${idx}" title="${usada?'Em uso — não pode remover':'Remover'}" ${usada?"disabled":""}>✕</button>
+    const qtd=pgtoEmUso(p.id);
+    const info=qtd?`<div class="meta" style="font-size:11px;color:var(--ink-soft)">${qtd} ${qtd===1?"compra usa":"compras usam"} este cartão</div>`:"";
+    return `<div class="cat-edit-row" style="align-items:flex-start">
+      <div style="flex:1">
+        <input type="text" value="${escapeHtml(p.nome)}" data-idx="${idx}" maxlength="28" placeholder="Nome (ex.: Cartão Nubank)" style="width:100%">
+        ${info}
+      </div>
+      <button class="rm" data-idx="${idx}" title="Remover">✕</button>
     </div>`;
   }).join("");
   list.querySelectorAll("input").forEach(inp=>{
     inp.oninput=()=>{editPgtos[+inp.dataset.idx].nome=inp.value;};
   });
   list.querySelectorAll(".rm").forEach(btn=>{
-    btn.onclick=()=>{editPgtos.splice(+btn.dataset.idx,1);renderCfgPgtoList();};
+    btn.onclick=()=>{
+      const idx=+btn.dataset.idx;
+      const p=editPgtos[idx];
+      const qtd=pgtoEmUso(p.id);
+      if(qtd>0){
+        if(!confirm(`O cartão "${p.nome||"(sem nome)"}" está em ${qtd} ${qtd===1?"compra":"compras"}.\n\nAo remover, ${qtd===1?"essa compra ficará":"essas compras ficarão"} sem forma de pagamento (não ${qtd===1?"será apagada":"serão apagadas"}).\n\nDeseja remover mesmo assim?`))return;
+        pgtosParaDesvincular.push(p.id);
+      }
+      editPgtos.splice(idx,1);
+      renderCfgPgtoList();
+    };
   });
 }
 function addPgtoLinha(){
@@ -1155,6 +1174,15 @@ async function salvarCfg(){
   const lista=editPgtos.map(p=>({id:p.id,nome:(p.nome||"").trim()})).filter(p=>p.nome!=="");
   const btn=document.getElementById("cfgSave");btn.disabled=true;btn.textContent="Salvando...";
   try{
+    // desvincula compras cujos cartões foram removidos (formaPgto -> vazio)
+    if(pgtosParaDesvincular.length){
+      const afetadas=(STATE.compras||[]).filter(c=>limparId(c.uid)===limparId(currentUid)&&pgtosParaDesvincular.includes(String(c.formaPgto)));
+      for(const c of afetadas){
+        const upd={id:c.id,uid:c.uid,data:c.data,desc:c.desc,catId:c.catId,formaPgto:"",moeda:c.moeda,parcelas:c.parcelas,valorOrig:c.valorOrig,rate:c.rate,valorBRL:c.valorBRL,fxDate:c.fxDate};
+        const r=await apiPost("updateCompra",upd);
+        if(!(r&&r.ok))throw new Error(r&&r.error||"falha ao desvincular compra");
+      }
+    }
     let res=await apiPost("setCorte",{uid:currentUid,dia});
     if(!(res&&res.ok))throw new Error(res&&res.error||"falha ao salvar corte");
     res=await apiPost("setPgtos",{uid:currentUid,lista});
